@@ -1,2 +1,3 @@
 Datasets/Sentiment_Analysis.csv
 .DS_Store
+__pycache__
