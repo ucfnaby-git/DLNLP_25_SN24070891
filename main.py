@@ -11,6 +11,7 @@ from A.data_process import BERTTextDataset, load_data
 from A.model import SentimentClassifier
 from A.training import train_one_epoch
 from A.evaluation import evaluate
+from A.testing import test_model
 
 # === Configuration ===
 SEED = 42
@@ -39,8 +40,13 @@ def main():
     dataset = BERTTextDataset(texts, labels, tokenizer, label2id)
 
     train_size = int(0.7 * len(dataset))
-    val_size = len(dataset) - train_size
-    train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
+    temp_size = len(dataset) - train_size
+    train_dataset, temp_dataset = torch.utils.data.random_split(dataset, [train_size, temp_size])
+    val_size = int(0.5 * len(temp_dataset))
+    test_size = len(temp_dataset) - val_size
+    val_dataset, test_dataset = torch.utils.data.random_split(temp_dataset, [val_size, test_size])
+    
+    torch.save(test_dataset, os.path.join("Datasets", "test_dataset.pt"))
 
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=16, worker_init_fn=seed_worker)
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=16, worker_init_fn=seed_worker)
@@ -104,5 +110,10 @@ def main():
     plt.tight_layout()
     plt.savefig(f"{OUTPUT_DIR}/plots/metric_curves.png")
 
+    #=== Run test evaluation using the last saved model ===
+    latest_ckpt = f"{OUTPUT_DIR}/checkpoints/classifier_epoch_{EPOCHS}.pt"
+    test_model(model_path=latest_ckpt)
+
 if __name__ == "__main__":
     main()
+    
