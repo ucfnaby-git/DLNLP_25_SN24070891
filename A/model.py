@@ -32,3 +32,45 @@ class SentimentClassifier(nn.Module):
             torch.Tensor: Raw class logits (batch_size, num_labels)
         """
         return self.fc(cls_embedding)
+
+class SentimentMLPClassifier(nn.Module):
+    """
+    A multi-layer perceptron (MLP) classifier for sentiment prediction.
+    Assumes input is a 768-dim [CLS] token from BERT.
+    """
+
+    def __init__(self, num_labels: int):
+        super().__init__()
+        self.mlp = nn.Sequential(
+            nn.Linear(768, 512),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(512, 512),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(512, 256),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(32, num_labels)
+        )
+
+    def forward(self, cls_embedding: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass through MLP classifier.
+
+        Args:
+            cls_embedding (torch.Tensor): BERT [CLS] embedding (batch_size, 768)
+
+        Returns:
+            torch.Tensor: Logits over sentiment classes (batch_size, num_labels)
+        """
+        return self.mlp(cls_embedding)

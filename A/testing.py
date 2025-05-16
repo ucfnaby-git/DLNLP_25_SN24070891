@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
 from transformers import BertModel
 
-from A.model import SentimentClassifier
+from A.model import SentimentMLPClassifier
 from A.utils import set_seed, seed_worker
 from A.evaluation import evaluate
 
@@ -38,7 +38,7 @@ def test_model(model_path, batch_size=16, seed=42, device=None):
     bert.to(device)
 
     # === Load classifier ===
-    classifier = SentimentClassifier(num_labels=13)
+    classifier = SentimentMLPClassifier(num_labels=13)
     if torch.cuda.device_count() > 1:
         classifier = torch.nn.DataParallel(classifier, device_ids=[4, 5, 6, 8, 9])
 

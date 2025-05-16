@@ -3,12 +3,13 @@ import csv
 import torch
 import pandas as pd
 import matplotlib.pyplot as plt
+import torch.optim.lr_scheduler as lr_scheduler
 from transformers import BertModel
 
 from torch.utils.data import DataLoader
 from A.utils import create_dirs, seed_worker, set_seed
 from A.data_process import BERTTextDataset, load_data
-from A.model import SentimentClassifier
+from A.model import SentimentMLPClassifier
 from A.training import train_one_epoch
 from A.evaluation import evaluate
 from A.testing import test_model
@@ -52,12 +53,15 @@ def main():
     val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=16, worker_init_fn=seed_worker)
 
     # === Initialize classifier ===
-    classifier = SentimentClassifier(num_labels=len(label2id))
+    classifier = SentimentMLPClassifier(num_labels=len(label2id))
     if torch.cuda.device_count() > 1:
         classifier = torch.nn.DataParallel(classifier, device_ids=[4, 5, 6, 8, 9])
     classifier = classifier.to(device)
 
-    optimizer = torch.optim.Adam(classifier.parameters(), lr=1e-4)
+    optimizer = torch.optim.Adam(classifier.parameters(), lr=1e-3)
+    scheduler = lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=EPOCHS, eta_min=1e-5
+    )
     loss_fn = torch.nn.CrossEntropyLoss()
     log_path = os.path.join(OUTPUT_DIR, "metrics_log.csv")
 
@@ -75,6 +79,8 @@ def main():
         auc_str = f"{val_auc:.4f}" if val_auc is not None else "0.0000"
         print(f"Train Loss: {train_loss:.4f} | Acc: {train_acc:.4f} | F1: {train_f1:.4f}")
         print(f"Val   Loss: {val_loss:.4f} | Acc: {val_acc:.4f} | F1: {val_f1:.4f} | AUC: {auc_str}")
+
+        scheduler.step()
 
         with open(log_path, "a", newline="") as f:
             writer = csv.writer(f)
