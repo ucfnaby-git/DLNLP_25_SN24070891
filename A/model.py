@@ -1,37 +1,31 @@
 import torch
 import torch.nn as nn
+from transformers import AutoModelForSequenceClassification
 
 
 class SentimentClassifier(nn.Module):
     """
-    A classification head for sentiment prediction using the [CLS] token embedding
-    from a frozen BERT encoder.
-
-    This module assumes that BERT outputs are precomputed externally and passed
-    into this model during training or inference.
+    Sentiment classifier using a frozen or partially fine-tuned BERT + 1 FC layer.
     """
-
-    def __init__(self, num_labels: int):
-        """
-        Initialize the classifier.
-
-        Args:
-            num_labels (int): Number of sentiment categories.
-        """
+    def __init__(self, num_labels):
         super().__init__()
-        self.fc = nn.Linear(768, num_labels)
+        self.bert = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=num_labels) 
+        # Freeze all layers
+        for param in self.bert.parameters():
+            param.requires_grad = False
 
-    def forward(self, cls_embedding: torch.Tensor) -> torch.Tensor:
-        """
-        Forward pass through the classifier.
+        for param in self.bert.classifier.parameters(): 
+            param.requires_grad = True 
+        
+        # # Unfreeze only the last encoder layer (layer 11)
+        # for name, param in self.bert.named_parameters():
+        #     if "encoder.layer.11" in name:
+        #         param.requires_grad = True
 
-        Args:
-            cls_embedding (torch.Tensor): BERT [CLS] token representation (batch_size, 768)
-
-        Returns:
-            torch.Tensor: Raw class logits (batch_size, num_labels)
-        """
-        return self.fc(cls_embedding)
+    def  forward ( self, input_ids, attention_mask ):
+        output = self.bert(input_ids=input_ids, attention_mask=attention_mask) 
+        logits = output.logits
+        return logits
 
 class SentimentMLPClassifier(nn.Module):
     """

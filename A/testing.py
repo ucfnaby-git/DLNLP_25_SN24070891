@@ -6,7 +6,7 @@ from torch.utils.data import DataLoader
 from sklearn.metrics import classification_report, confusion_matrix, ConfusionMatrixDisplay
 from transformers import BertModel
 
-from A.model import SentimentMLPClassifier
+from A.model import SentimentClassifier
 from A.utils import set_seed, seed_worker
 from A.evaluation import evaluate
 
@@ -21,26 +21,19 @@ def test_model(model_path, batch_size=16, seed=42, device=None):
         device (torch.device or None): Device for evaluation; defaults to CUDA if available.
     """
     set_seed(seed)
-    device = device or torch.device("cuda:4" if torch.cuda.is_available() else "cpu")
+    device = device or torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     # === Load saved test dataset ===
 
     torch.serialization.add_safe_globals([torch.utils.data.dataset.Subset])
     test_dataset = torch.load("Datasets/test_dataset.pt", weights_only=False)
 
-    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=4, worker_init_fn=seed_worker)
-
-    # === Load frozen BERT model ===
-    bert = BertModel.from_pretrained("bert-base-uncased")
-    for param in bert.parameters():
-        param.requires_grad = False
-    bert.eval()
-    bert.to(device)
+    test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=False, num_workers=16, worker_init_fn=seed_worker)
 
     # === Load classifier ===
-    classifier = SentimentMLPClassifier(num_labels=13)
+    classifier = SentimentClassifier(num_labels=2)
     if torch.cuda.device_count() > 1:
-        classifier = torch.nn.DataParallel(classifier, device_ids=[4, 5, 6, 8, 9])
+        classifier = torch.nn.DataParallel(classifier, device_ids=[0, 1, 2, 3, 4, 5, 6, 8])
 
     checkpoint = torch.load(model_path, map_location=device)
     classifier.load_state_dict(checkpoint)
@@ -50,15 +43,14 @@ def test_model(model_path, batch_size=16, seed=42, device=None):
     # === Collect predictions ===
     all_preds, all_labels = [], []
     with torch.no_grad():
-        for input_ids, attn_mask, token_type_ids, labels in test_loader:
+        for input_ids, attention_mask, token_type_ids, labels in test_loader:
             input_ids = input_ids.to(device)
-            attn_mask = attn_mask.to(device)
+            attention_mask = attention_mask.to(device)
             token_type_ids = token_type_ids.to(device)
             labels = labels.to(device)
 
-            cls_token = bert(input_ids, attention_mask=attn_mask, token_type_ids=token_type_ids).last_hidden_state[:, 0]
-            logits = classifier(cls_token)
-            preds = torch.argmax(logits, dim=1)
+            out = classifier(input_ids, attention_mask, token_type_ids)
+            preds = torch.argmax(out, dim=1)
 
             all_preds.extend(preds.cpu().tolist())
             all_labels.extend(labels.cpu().tolist())
@@ -66,8 +58,7 @@ def test_model(model_path, batch_size=16, seed=42, device=None):
     # === Classification report ===
     print("Running test evaluation...")
     label_names = [
-        "anger", "boredom", "empty", "enthusiasm", "fun", "happiness", "hate",
-        "love", "neutral", "relief", "sadness", "surprise", "worry"
+        "positive","negative"
     ]
     report = classification_report(all_labels, all_preds, target_names=label_names, digits=4)
     print(report)
