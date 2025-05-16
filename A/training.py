@@ -34,11 +34,11 @@ def train_one_epoch(classifier, dataloader, optimizer, loss_fn, device, training
         token_type_ids = token_type_ids.to(device)
         labels = labels.to(device)
 
-        out = classifier(input_ids, attention_mask)
+        out = classifier(input_ids, attention_mask, token_type_ids)
         loss = loss_fn(out, labels)
 
         optimizer.zero_grad()
-        # loss.backward()
+        loss.backward()
         optimizer.step()
 
         total_loss += loss.item()

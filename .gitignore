@@ -1,6 +1,4 @@
 Datasets/Sentiment_Analysis.csv
 Datasets/IMDB_Dataset.csv
-Datasets/test_dataset.pt
-logs/checkpoints/
 .DS_Store
 __pycache__

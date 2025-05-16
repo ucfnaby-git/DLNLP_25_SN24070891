@@ -17,7 +17,7 @@ SEED = 42
 EPOCHS = 10
 BATCH_SIZE = 128
 NUM_WORKERS = 20
-CSV_PATH="Datasets/IMDB_Dataset.csv"
+CSV_PATH = "Datasets/IMDB_Dataset.csv"
 OUTPUT_DIR = "logs"
 
 def main():
@@ -31,19 +31,18 @@ def main():
     # === Load and prepare data ===
     texts, labels, tokenizer, label2id, id2label = load_data(CSV_PATH)
     dataset = BERTTextDataset(texts, labels, tokenizer, label2id)
-    train_loader, val_loader, test_loader= split_dataset(dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS)
+    train_loader, val_loader, test_loader = split_dataset(dataset, batch_size=BATCH_SIZE, num_workers=NUM_WORKERS)
 
     # === Initialize classifier ===
-    print(f"num_labels:{len(label2id)}")
     classifier = SentimentClassifier(num_labels=len(label2id))
     if torch.cuda.device_count() > 1:
         classifier = torch.nn.DataParallel(classifier, device_ids=[0, 1, 2, 3, 4, 5, 6, 8])
     classifier = classifier.to(device)
 
     optimizer = torch.optim.Adam(classifier.parameters(), lr=1e-2)
-    # scheduler = lr_scheduler.CosineAnnealingLR(
-    #     optimizer, T_max=EPOCHS, eta_min=1e-3
-    # )
+    scheduler = lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=EPOCHS, eta_min=1e-3
+    )
     loss_fn = torch.nn.CrossEntropyLoss()
     log_path = os.path.join(OUTPUT_DIR, "metrics_log.csv")
 
@@ -62,7 +61,7 @@ def main():
         print(f"Train Loss: {train_loss:.4f} | Acc: {train_acc:.4f} | F1: {train_f1:.4f}")
         print(f"Val   Loss: {val_loss:.4f} | Acc: {val_acc:.4f} | F1: {val_f1:.4f}")
 
-        # scheduler.step()
+        scheduler.step()
 
         with open(log_path, "a", newline="") as f:
             writer = csv.writer(f)
@@ -98,8 +97,8 @@ def main():
     plt.savefig(f"{OUTPUT_DIR}/plots/metric_curves.png")
 
     #=== Run test evaluation using the last saved model ===
-    # latest_ckpt = f"{OUTPUT_DIR}/checkpoints/classifier_epoch_{EPOCHS}.pt"
-    # test_model(model_path=latest_ckpt, batch_size=BATCH_SIZE, device=device)
+    latest_ckpt = f"{OUTPUT_DIR}/checkpoints/classifier_epoch_{EPOCHS}.pt"
+    test_model(model_path=latest_ckpt, batch_size=BATCH_SIZE, device=device)
 
 if __name__ == "__main__":
     main()

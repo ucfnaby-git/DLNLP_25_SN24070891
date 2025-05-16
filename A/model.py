@@ -2,13 +2,13 @@ import torch
 import torch.nn as nn
 from transformers import AutoModelForSequenceClassification
 
-
 class SentimentClassifier(nn.Module):
     """
-    Sentiment classifier using a frozen or partially fine-tuned BERT + 1 FC layer.
+    Sentiment classification model using a frozen BERT encoder.
+    The [CLS] token output is passed through a dropout and linear layer.
     """
-    def __init__(self, num_labels):
-        super().__init__()
+    def __init__(self, num_labels: int, dropout_prob: float = 0.3):
+        super(SentimentClassifier, self).__init__()
         self.bert = AutoModelForSequenceClassification.from_pretrained("bert-base-uncased", num_labels=num_labels) 
         # Freeze all layers
         for param in self.bert.parameters():
@@ -16,16 +16,16 @@ class SentimentClassifier(nn.Module):
 
         for param in self.bert.classifier.parameters(): 
             param.requires_grad = True 
-        
-        # # Unfreeze only the last encoder layer (layer 11)
-        # for name, param in self.bert.named_parameters():
-        #     if "encoder.layer.11" in name:
-        #         param.requires_grad = True
 
-    def  forward ( self, input_ids, attention_mask ):
-        output = self.bert(input_ids=input_ids, attention_mask=attention_mask) 
-        logits = output.logits
+    def forward(self, input_ids, attention_mask, token_type_ids):
+        outputs = self.bert(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            token_type_ids=token_type_ids
+        )
+        logits = outputs.logits
         return logits
+
 
 class SentimentMLPClassifier(nn.Module):
     """
